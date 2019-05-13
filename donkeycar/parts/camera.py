@@ -19,6 +19,11 @@ class PiCamera(BaseCamera):
         # initialize the camera and stream
         self.camera = PiCamera()  # PiCamera gets resolution (height, width)
         self.camera.resolution = resolution
+		
+		# Try to reduce exposure time as much as possible
+		self.camera.exposure_mode = 'sports'
+		self.camera.iso = 800
+		
         self.camera.framerate = framerate
         self.rawCapture = PiRGBArray(self.camera, size=resolution)
         self.stream = self.camera.capture_continuous(self.rawCapture,
@@ -32,6 +37,7 @@ class PiCamera(BaseCamera):
 
         print('PiCamera loaded.. .warming camera')
         time.sleep(2)
+		print('PiCamera operational, exposure speed is: ' + exposure_speed)
 
     def run(self):
         f = next(self.stream)

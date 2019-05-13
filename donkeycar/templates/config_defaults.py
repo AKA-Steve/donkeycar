@@ -21,8 +21,8 @@ DATA_PATH = os.path.join(CAR_PATH, 'data')
 MODELS_PATH = os.path.join(CAR_PATH, 'models')
 
 #VEHICLE
-DRIVE_LOOP_HZ = 20
-MAX_LOOPS = 100000
+DRIVE_LOOP_HZ = 50	# Match the speed of typical PWM protocol
+MAX_LOOPS = 1000000
 
 #CAMERA
 CAMERA_RESOLUTION = (120, 160) #(height, width)

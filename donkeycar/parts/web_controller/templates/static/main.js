@@ -283,7 +283,7 @@ var driveHandler = new function() {
 
 
     function gamePadLoop() {
-      setTimeout(gamePadLoop,100);
+      setTimeout(gamePadLoop,20);
 
       if (state.controlMode != "gamepad") {
         return;
@@ -325,7 +325,7 @@ var driveHandler = new function() {
       }
 
 
-    // Send control updates to the server every .1 seconds.
+    // Send control updates to the server every .020 seconds to match common RC pwm frequency of 50 Hz
     function joystickLoop () {
        setTimeout(function () {
             postDrive()
@@ -333,7 +333,7 @@ var driveHandler = new function() {
           if (joystickLoopRunning && state.controlMode == "joystick") {
              joystickLoop();
           }
-       }, 100)
+       }, 20)
     }
 
     // Control throttle and steering with device orientation
@@ -388,7 +388,7 @@ var driveHandler = new function() {
           if (state.controlMode == "tilt") {
             deviceOrientationLoop();
           }
-       }, 100)
+       }, 20)
     }
 
     var throttleUp = function(){
@@ -433,7 +433,7 @@ var driveHandler = new function() {
 
     var brake = function(i){
           console.log('post drive: ' + i)
-          state.tele.user.angle = 0
+          //state.tele.user.angle = 0
           state.tele.user.throttle = 0
           state.recording = false
           state.driveMode = 'user';
@@ -456,11 +456,13 @@ var driveHandler = new function() {
       var limitedThrottle = 0;
 
       if (newThrottle > 0) {
-        limitedThrottle = Math.min(state.maxThrottle, newThrottle);
+        //limitedThrottle = Math.min(state.maxThrottle, newThrottle);
+		limitedThrottle = newThrottle * state.maxThrottle;
       }
 
       if (newThrottle < 0) {
-        limitedThrottle = Math.max((state.maxThrottle * -1), newThrottle);
+        //limitedThrottle = Math.max((state.maxThrottle * -1), newThrottle);
+		limitedThrottle = newThrottle * state.maxThrottle;
       }
 
       if (state.throttleMode == 'constant') {
