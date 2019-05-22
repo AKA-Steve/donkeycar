@@ -17,6 +17,7 @@ from docopt import docopt
 import donkeycar as dk
 
 from donkeycar.parts.camera import PiCamera
+from donkeycar.parts.camera import CameraProcessor
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.keras import KerasLinear
 from donkeycar.parts.actuator import PCA9685, PWMSteering, PWMThrottle
@@ -48,9 +49,15 @@ def drive(cfg, model_path=None, use_chaos=False):
     cam = PiCamera(resolution=cfg.CAMERA_RESOLUTION)
     V.add(cam, outputs=['cam/image_array'], threaded=True)
 
+    processedCam = CameraProcessor(resolution=cfg.CAMERA_RESOLUTION)
+    V.add(processedCam,
+          inputs=['cam/image_array'],
+          outputs=['pCam/image_array'], threaded=True)
+
+
     ctr = LocalWebController(use_chaos=use_chaos)
     V.add(ctr,
-          inputs=['cam/image_array'],
+          inputs=['cam/image_array', 'pCam/image_array'],
           outputs=['user/angle', 'user/throttle', 'user/mode', 'recording'],
           threaded=True)
 

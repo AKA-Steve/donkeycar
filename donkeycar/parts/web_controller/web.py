@@ -58,17 +58,19 @@ class LocalWebController(tornado.web.Application):
             (r"/", tornado.web.RedirectHandler, dict(url="/drive")),
             (r"/drive", DriveAPI),
             (r"/video", VideoAPI),
+            (r"/processedVideo", ProcessedVideoAPI),
             (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": self.static_file_path}),
         ]
 
         settings = {'debug': True}
         super().__init__(handlers, **settings)
 
-    def run_chaos(self, img_arr=None):
+    def run_chaos(self, img_arr=None, p_img_arr=None):
         """
         Run function where steering is made random to add corrective
         """
         self.img_arr = img_arr
+        self.p_img_arr = p_img_arr
         if self.chaos_counter == self.chaos_frequency:
             self.chaos_on = True
             random_steering = random.random()
@@ -94,12 +96,13 @@ class LocalWebController(tornado.web.Application):
         instance.add_callback(self.say_hello)
         instance.start()
 
-    def _run_threaded(self, img_arr=None):
+    def _run_threaded(self, img_arr=None, p_img_arr=None):
         self.img_arr = img_arr
+        self.p_img_arr = p_img_arr
         return self.angle, self.throttle, self.mode, self.recording
 
-    def run(self, img_arr=None):
-        return self.run_threaded(img_arr)
+    def run(self, img_arr=None, p_img_arr=None):
+        return self.run_threaded(img_arr, p_img_arr)
 
 
 class DriveAPI(tornado.web.RequestHandler):
@@ -117,6 +120,38 @@ class DriveAPI(tornado.web.RequestHandler):
         self.application.throttle = data['throttle']
         self.application.mode = data['drive_mode']
         self.application.recording = data['recording']
+
+class ProcessedVideoAPI(tornado.web.RequestHandler):
+    """
+    Serves a MJPEG of the images posted from the vehicle.
+    """
+
+    @tornado.web.asynchronous
+    @tornado.gen.coroutine
+    def get(self):
+
+        ioloop = tornado.ioloop.IOLoop.current()
+        self.set_header("Content-type", "multipart/x-mixed-replace;boundary=--boundarydonotcross")
+
+        self.served_image_timestamp = time.time()
+        my_boundary = "--boundarydonotcross"
+        while True:
+
+            interval = .02 #0.1 originally
+            if self.served_image_timestamp + interval < time.time():
+
+                if p_img_arr ~= None:
+                    p_img = util.img.arr_to_binary(self.application.p_img_arr)
+                    self.write(my_boundary)
+                    self.write("Content-type: image/jpeg\r\n")
+                    self.write("Content-length: %s\r\n\r\n" % len(p_img))
+                    self.write(p_img)
+
+                self.served_image_timestamp = time.time()
+                yield tornado.gen.Task(self.flush)
+            else:
+                yield tornado.gen.Task(ioloop.add_timeout, ioloop.time() + interval)
+
 
 
 class VideoAPI(tornado.web.RequestHandler):
@@ -144,6 +179,7 @@ class VideoAPI(tornado.web.RequestHandler):
                 self.write("Content-type: image/jpeg\r\n")
                 self.write("Content-length: %s\r\n\r\n" % len(img))
                 self.write(img)
+
                 self.served_image_timestamp = time.time()
                 yield tornado.gen.Task(self.flush)
             else:
