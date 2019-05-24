@@ -212,7 +212,10 @@ class MakeMovie(BaseCommand):
 
         print('making movie', args.out, 'from', self.num_rec, 'images')
         clip = mpy.VideoClip(self.make_frame, duration=(self.num_rec//cfg.DRIVE_LOOP_HZ) - 1)
-        clip.write_videofile(args.out,fps=cfg.DRIVE_LOOP_HZ)
+        processedClip = mpy.VideoClip(self.make_processed_frame, duration=(self.num_rec//cfg.DRIVE_LOOP_HZ) - 1)
+        
+        finalClip = clips_array( [clip, processedClip] )
+        finalClip.write_videofile(args.out,fps=cfg.DRIVE_LOOP_HZ)
 
         print('done')
 
@@ -232,6 +235,50 @@ class MakeMovie(BaseCommand):
         image = rec['cam/image_array']
 
         return image # returns a 8-bit RGB array
+
+    def make_processed_frame(self, t):
+        import cv2
+        """
+        Callback to return an image from from our tub records.
+        This is called from the VideoClip as it references a time.
+        We don't use t to reference the frame, but instead increment
+        a frame counter. This assumes sequential access.
+        """
+        self.iRec = self.iRec + 1
+
+        if self.iRec >= self.num_rec - 1:
+            return None
+
+        rec = self.tub.get_record(self.iRec)
+        image = rec['cam/image_array']
+
+        
+        # TODO - turn this into a function that can be referenced in multiple files`
+        blur = cv2.GaussianBlur(img_arr,(5,5),0)
+        gray = cv2.cvtColor(blur, cv2.COLOR_BGR2GRAY)
+        
+        ret, thresh = cv2.threshold(gray,0,255,cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        
+        kernel = np.ones((3,3), np.uint8)
+        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations = 2)
+        sure_bg = cv2.dilate(opening, kernel, iterations = 3)
+        
+        dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+        ret, sure_fg = cv2.threshold(dist_transform, 0.7*dist_transform.max(), 255, 0)
+        sure_fg = np.uint8(sure_fg)
+        
+        unknown = cv2.subtract(sure_bg,sure_fg)
+        
+        ret, markers = cv2.connectedComponents(sure_fg)
+        markers += 1
+        markers[unknown==255] = 0
+        markers = cv2.watershed(img_arr,markers)
+        img_arr[markers==-1] = [255,0,0]
+        
+        processed_image = img_arr
+        ############################################################################
+        
+        return processed_image # returns a 8-bit RGB array
 
 
 
