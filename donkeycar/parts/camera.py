@@ -23,7 +23,10 @@ class CameraProcessor():
 
     def run(self,img_arr = None):
         # Process the image
-        self.processed_image = cv2.Canny(img_arr,100,200)
+        #self.processed_image = cv2.Canny(img_arr,100,200)
+        blur = cv2.GaussianBlur(img_arr,(5,5),0)
+        #gray = cv2.cvtColor(blur, cv2.COLOR_BGR2GRAY)
+        ret, self.processed_image = cv2.threshold(blur,0,255,cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
         return self.processed_image
 
     def update(self):
@@ -38,7 +41,6 @@ class CameraProcessor():
 class TestCam(BaseCamera):
     def __init__(self, resolution=(120, 160), framerate=20):
         self.frame = cv2.imread('Neptune_Full.jpg',0)
-        self.frame = cv2.GaussianBlur(self.frame,(5,5),0)
         
     def run(self):
         return self.frame
