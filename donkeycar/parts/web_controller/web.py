@@ -140,7 +140,7 @@ class ProcessedVideoAPI(tornado.web.RequestHandler):
             interval = .02 #0.1 originally
             if self.served_image_timestamp + interval < time.time():
 
-                if p_img_arr ~= None:
+                if (self.application.p_img_arr is None) == False:
                     p_img = util.img.arr_to_binary(self.application.p_img_arr)
                     self.write(my_boundary)
                     self.write("Content-type: image/jpeg\r\n")

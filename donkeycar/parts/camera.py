@@ -10,6 +10,9 @@ import cv2
 class BaseCamera:
 
     def run_threaded(self):
+        if self.last_frame == self.frame:
+            print("Warning: returning same image")
+        self.last_frame = self.frame
         return self.frame
 
 class CameraProcessor():
@@ -18,23 +21,26 @@ class CameraProcessor():
         self.on = True
         print('CameraProcessor loaded')
 
-    def run(self,img_arr):
+    def run(self,img_arr = None):
         # Process the image
-        edges = cv2.Canny(img_arr,100,200)
-        self.processed_image = edges
-
-    def run_threaded(self):
+        self.processed_image = cv2.Canny(img_arr,100,200)
         return self.processed_image
 
     def update(self):
-        if not self.on:
-            break
+        return
 
     def shutdown(self):
         # indicate that the thread should be stopped
         self.on = False
         print('stoping CameraProcessor')
         time.sleep(.5)
+        
+class TestCam(BaseCamera):
+    def __init__(self, resolution=(120, 160), framerate=20):
+        self.frame = cv2.imread('Neptune_Full.jpg',0)
+        
+    def run(self):
+        return self.frame
 
 class PiCamera(BaseCamera):
     def __init__(self, resolution=(120, 160), framerate=20):
