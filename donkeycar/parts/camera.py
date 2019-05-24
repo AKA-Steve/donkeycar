@@ -7,6 +7,8 @@ import glob
 import cv2
 
 
+# https://towardsdatascience.com/image-pre-processing-c1aec0be3edf
+
 class BaseCamera:
 
     def run_threaded(self):
