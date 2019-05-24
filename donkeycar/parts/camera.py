@@ -38,6 +38,7 @@ class CameraProcessor():
 class TestCam(BaseCamera):
     def __init__(self, resolution=(120, 160), framerate=20):
         self.frame = cv2.imread('Neptune_Full.jpg',0)
+        self.frame = cv2.GaussianBlur(self.frame,(5,5),0)
         
     def run(self):
         return self.frame
