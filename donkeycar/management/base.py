@@ -214,8 +214,8 @@ class MakeMovie(BaseCommand):
         clip = mpy.VideoClip(self.make_frame, duration=(self.num_rec//cfg.DRIVE_LOOP_HZ) - 1)
         processedClip = mpy.VideoClip(self.make_processed_frame, duration=(self.num_rec//cfg.DRIVE_LOOP_HZ) - 1)
         
-        finalClip = clips_array( [clip, processedClip] )
-        finalClip.write_videofile(args.out,fps=cfg.DRIVE_LOOP_HZ)
+        finalClip = mpy.clips_array( [[clip, processedClip]] )
+        finalClip.write_videofile(args.out,fps=cfg.DRIVE_LOOP_HZ, threads=6)
 
         print('done')
 
@@ -238,20 +238,20 @@ class MakeMovie(BaseCommand):
 
     def make_processed_frame(self, t):
         import cv2
+        import numpy as np
         """
         Callback to return an image from from our tub records.
         This is called from the VideoClip as it references a time.
         We don't use t to reference the frame, but instead increment
         a frame counter. This assumes sequential access.
         """
-        self.iRec = self.iRec + 1
 
         if self.iRec >= self.num_rec - 1:
             return None
 
         rec = self.tub.get_record(self.iRec)
         image = rec['cam/image_array']
-
+        img_arr = image
         
         # TODO - turn this into a function that can be referenced in multiple files`
         blur = cv2.GaussianBlur(img_arr,(5,5),0)
@@ -275,7 +275,7 @@ class MakeMovie(BaseCommand):
         markers = cv2.watershed(img_arr,markers)
         img_arr[markers==-1] = [255,0,0]
         
-        processed_image = img_arr
+        processed_image = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
         ############################################################################
         
         return processed_image # returns a 8-bit RGB array
