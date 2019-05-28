@@ -255,27 +255,36 @@ class MakeMovie(BaseCommand):
         
         # TODO - turn this into a function that can be referenced in multiple files`
         blur = cv2.GaussianBlur(img_arr,(5,5),0)
-        gray = cv2.cvtColor(blur, cv2.COLOR_BGR2GRAY)
+        hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
+
+        black = np.uint8([[[0,0,0]]])
+        hsvBlack = cv2.cvtColor( black, cv2.COLOR_BGR2HSV)
+        lowerLimit = np.uint8([0,0,0])
+        upperLimit = np.uint8([180,255,60])
         
-        ret, thresh = cv2.threshold(gray,0,255,cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        mask = cv2.inRange(hsv,lowerLimit,upperLimit)
+        result = cv2.bitwise_and(image,image,mask=mask)
+              
+        #Otsu's is apparently only really good for bimodal images
+        #ret, thresh = cv2.threshold(gray,0,255,cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
         
-        kernel = np.ones((3,3), np.uint8)
-        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations = 2)
-        sure_bg = cv2.dilate(opening, kernel, iterations = 3)
+        #kernel = np.ones((3,3), np.uint8)
+        #opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations = 2)
+        #sure_bg = cv2.dilate(opening, kernel, iterations = 3)
+        #
+        #dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+        #ret, sure_fg = cv2.threshold(dist_transform, 0.7*dist_transform.max(), 255, 0)
+        #sure_fg = np.uint8(sure_fg)
+        #
+        #unknown = cv2.subtract(sure_bg,sure_fg)
+        #
+        #ret, markers = cv2.connectedComponents(sure_fg)
+        #markers += 1
+        #markers[unknown==255] = 0
+        #markers = cv2.watershed(img_arr,markers)
+        #img_arr[markers==-1] = [255,0,0]
         
-        dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
-        ret, sure_fg = cv2.threshold(dist_transform, 0.7*dist_transform.max(), 255, 0)
-        sure_fg = np.uint8(sure_fg)
-        
-        unknown = cv2.subtract(sure_bg,sure_fg)
-        
-        ret, markers = cv2.connectedComponents(sure_fg)
-        markers += 1
-        markers[unknown==255] = 0
-        markers = cv2.watershed(img_arr,markers)
-        img_arr[markers==-1] = [255,0,0]
-        
-        processed_image = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+        processed_image = cv2.cvtColor(result, cv2.COLOR_HSV2BGR)
         ############################################################################
         
         return processed_image # returns a 8-bit RGB array
@@ -479,6 +488,129 @@ class ShowPredictionPlots(BaseCommand):
 
         plt.show()
 
+class Playground(BaseCommand):
+
+    def parse_args(self, args):
+        parser = argparse.ArgumentParser(prog='play')
+        parser.add_argument('--tub', help='The tub to make movie from')
+        parser.add_argument('--out', default='tub_movie.mp4', help='The movie filename to create. default: tub_movie.mp4')
+        parser.add_argument('--config', default='./config.py', help='location of config file to use. default: ./config.py')
+        parsed_args = parser.parse_args(args)
+        return parsed_args, parser
+
+    def doNothing(self, x):
+        pass
+
+    def run(self, args):
+        """
+        """
+        import cv2
+        import time
+        import numpy as np
+
+
+        args, parser = self.parse_args(args)
+
+        if args.tub is None:
+            parser.print_help()
+            return
+
+        conf = os.path.expanduser(args.config)
+
+        if not os.path.exists(conf):
+            print("No config file at location: %s. Add --config to specify\
+                 location or run from dir containing config.py." % conf)
+            return
+
+        try:
+            cfg = dk.load_config(conf)
+        except:
+            print("Exception while loading config from", conf)
+            return
+
+        self.tub = Tub(args.tub)
+        self.num_rec = self.tub.get_num_records()
+        self.iRec = 0
+
+        print('Showing image previews', args.out, 'from', self.num_rec, 'images')
+        cv2.namedWindow("Processed(1)")
+        cv2.createTrackbar("B","Processed(1)",0,255, self.doNothing)
+        cv2.createTrackbar("G","Processed(1)",0,255, self.doNothing)
+        cv2.createTrackbar("R","Processed(1)",0,255, self.doNothing)
+        cv2.createTrackbar("T","Processed(1)",0,60, self.doNothing)
+        
+        for i in range(self.num_rec):
+        
+            self.B = cv2.getTrackbarPos("B","Processed(1)")
+            self.G = cv2.getTrackbarPos("G","Processed(1)")
+            self.R = cv2.getTrackbarPos("R","Processed(1)")
+            self.T = cv2.getTrackbarPos("T","Processed(1)")
+        
+            clip = self.make_frame(0)
+            processedClip = self.make_processed_frame(0)
+            cv2.imshow("Image", clip)
+            cv2.imshow("Processed(1)", processedClip)
+        
+            cv2.waitKey(1)
+        #if self.iRec >= self.num_rec:
+        #    self.iRec -= self.num_rec
+        
+        
+
+        print('done')
+
+    def make_frame(self, t):
+        """
+        Callback to return an image from from our tub records.
+        This is called from the VideoClip as it references a time.
+        We don't use t to reference the frame, but instead increment
+        a frame counter. This assumes sequential access.
+        """
+        self.iRec = self.iRec + 1
+
+        if self.iRec >= self.num_rec - 1:
+            return None
+
+        rec = self.tub.get_record(self.iRec)
+        image = rec['cam/image_array']
+
+        return image # returns a 8-bit RGB array
+
+    def make_processed_frame(self, t):
+        import cv2
+        import numpy as np
+        """
+        Callback to return an image from from our tub records.
+        This is called from the VideoClip as it references a time.
+        We don't use t to reference the frame, but instead increment
+        a frame counter. This assumes sequential access.
+        """
+
+        if self.iRec >= self.num_rec - 1:
+            return None
+
+        rec = self.tub.get_record(self.iRec)
+        image = rec['cam/image_array']
+        img_arr = image
+        
+        blur = cv2.GaussianBlur(img_arr,(5,5),0)
+        hsv = cv2.cvtColor(blur, cv2.COLOR_RGB2HSV)
+        
+        #https://maker.pro/raspberry-pi/tutorial/how-to-create-object-detection-with-opencv
+
+        color = np.uint8([[[self.B,self.G,self.R]]])
+        hsvColor = cv2.cvtColor( color, cv2.COLOR_BGR2HSV)
+        lowerLimit = np.uint8([hsvColor[0,0,0]-self.T,100,100])
+        upperLimit = np.uint8([hsvColor[0,0,0]+self.T,255,255])
+        
+        mask = cv2.inRange(hsv,lowerLimit,upperLimit)
+        result = cv2.bitwise_and(image,image,mask=mask)
+        
+        processed_image = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
+        ############################################################################
+        
+        return processed_image # returns a 8-bit RGB array
+
 def execute_from_command_line():
     """
     This is the fuction linked to the "donkey" terminal command.
@@ -493,6 +625,7 @@ def execute_from_command_line():
             'tubcheck': TubCheck,
             'makemovie': MakeMovie,
             'sim': Sim,
+            'play' : Playground
                 }
 
     args = sys.argv[:]
